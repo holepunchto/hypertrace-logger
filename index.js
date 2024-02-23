@@ -1,18 +1,23 @@
 import DHT from 'hyperdht'
 import fs from 'fs'
+import goodbye from 'graceful-goodbye'
 
 const node = new DHT()
 const server = node.createServer()
-let logFilename = 'tmp.log'
+
+goodbye(() => server.close())
 
 server.on('connection', socket => {
   socket.on('error', err => console.error(err))
-  console.log('got connection')
+  console.log(`Got connection from ${socket.remotePublicKey.toString('hex')}`)
 
   socket.on('data', async data => {
     try {
       socket.pause()
-      await sendDataToLoki(JSON.parse(data))
+      await writeToLogFile({
+        json: JSON.parse(data),
+        logFilename: `${socket.remotePublicKey.toString('hex')}.log`
+      })
     } catch (err) {
       console.error(err?.config?.data || err)
     } finally {
@@ -39,12 +44,11 @@ async function main () {
     secretKey: Buffer.from(kp.secretKey, 'hex')
   }
 
-  logFilename = `${kp.publicKey}.log`
   await server.listen(keyPair)
   console.log(`server started on ${keyPair.publicKey.toString('hex')}`)
 }
 
-async function sendDataToLoki (json) {
+async function writeToLogFile ({ json, logFilename }) {
   const logEntry = JSON.stringify(json)
   const timestamp = new Date().toISOString()
 
@@ -57,7 +61,7 @@ async function sendDataToLoki (json) {
   // delete labels.object_props_signal_description_sdp
 }
 
-// sendDataToLoki({
+// writeToLogFile({
 //   "caller": {
 //     "functionName": "_observeSignalEvents",
 //     "props": {
@@ -85,4 +89,3 @@ async function sendDataToLoki (json) {
 //     }
 //   }
 // })
-
