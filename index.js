@@ -49,10 +49,11 @@ async function main () {
 }
 
 async function writeToLogFile ({ json, logFilename }) {
-  const logEntry = JSON.stringify(json)
   const timestamp = new Date().toISOString()
+  json.time = timestamp
+  const logEntry = JSON.stringify(json)
 
-  return fs.promises.appendFile(logFilename, `${timestamp} ${logEntry}\n`)
+  return fs.promises.appendFile(logFilename, `${logEntry}\n`)
 
   // Leaving this here, in case we might need the labels part again
   // const labels = flatten(json, { delimiter: '_' }) // Turn `{ object: { id: 1 } }` into `{ object_id: 1 }`
