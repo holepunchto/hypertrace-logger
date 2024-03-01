@@ -8,10 +8,10 @@ const server = node.createServer()
 goodbye(() => server.close())
 
 server.on('connection', socket => {
-  socket.setKeepAlive(5000)
-  socket.on('error', err => console.error(err))
   console.log(`Got connection from ${socket.remotePublicKey.toString('hex')}`)
 
+  socket.setKeepAlive(5000)
+  socket.on('error', err => console.error(err))
   socket.on('data', async data => {
     try {
       socket.pause()
