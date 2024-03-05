@@ -1,22 +1,37 @@
 import DHT from 'hyperdht'
 import fs from 'fs'
 import goodbye from 'graceful-goodbye'
+import Grapher from './grapher.js'
 
+console.log('Check for startup issues', 1)
 const node = new DHT()
+console.log('Check for startup issues', 2)
 const server = node.createServer()
+console.log('Check for startup issues', 3)
+const grapher = new Grapher()
+console.log('Check for startup issues', 4)
 
 goodbye(() => server.close())
 
+let userCount = 0
 server.on('connection', socket => {
+  userCount += 1
+  const userId = `User-${userCount}`
   console.log(`Got connection from ${socket.remotePublicKey.toString('hex')}`)
 
   socket.setKeepAlive(5000)
   socket.on('error', err => console.error(err))
   socket.on('data', async data => {
     try {
+      // console.log('[received]', data.toString())
       socket.pause()
+      const json = JSON.parse(data)
+      const timestamp = new Date().toISOString()
+      json.time = timestamp
+      json.userId = json.userId || userId // TODO: Should have already been set keet-desktop
+      grapher.add(json)
       await writeToLogFile({
-        json: JSON.parse(data),
+        json,
         logFilename: `${socket.remotePublicKey.toString('hex')}.log`
       })
     } catch (err) {
@@ -30,6 +45,7 @@ server.on('connection', socket => {
 main()
 
 async function main () {
+  console.log('Check for startup issues', 5)
   const doesKeysExists = fs.existsSync('./keys.dat')
   if (!doesKeysExists) {
     const kp = DHT.keyPair()
@@ -39,20 +55,21 @@ async function main () {
     }))
   }
 
+  console.log('Check for startup issues', 6)
   const kp = JSON.parse(fs.readFileSync('./keys.dat'))
   const keyPair = {
     publicKey: Buffer.from(kp.publicKey, 'hex'),
     secretKey: Buffer.from(kp.secretKey, 'hex')
   }
-
+  console.log('Check for startup issues', 7)
   await server.listen(keyPair)
   console.log(`server started on ${keyPair.publicKey.toString('hex')}`)
 }
 
 async function writeToLogFile ({ json, logFilename }) {
-  const timestamp = new Date().toISOString()
-  json.time = timestamp
   const logEntry = JSON.stringify(json)
+  // console.log('[stored]', logEntry)
+  // const logEntry = JSON.stringify(json)
 
   return fs.promises.appendFile(logFilename, `${logEntry}\n`)
 
@@ -62,6 +79,22 @@ async function writeToLogFile ({ json, logFilename }) {
   // delete labels.caller_props_signal_description_sdp
   // delete labels.object_props_signal_description_sdp
 }
+
+// A simple serializer whose main responsibility is to turn buffers into hex-strings
+// function serializeJsonWithBuffers (obj) {
+//   return JSON.stringify(serializeNoStringify(obj))
+
+//   function serializeNoStringify (obj) {
+//     if (obj === null) return obj
+//     if (Buffer.isBuffer(obj)) return obj.toString('hex')
+//     if (Array.isArray(obj)) return obj.map(v => serializeNoStringify(v))
+//     if (typeof obj !== 'object') return obj
+//     return Object.entries(obj).reduce((serializedObj, [key, val]) => {
+//       serializedObj[key] = serializeNoStringify(val)
+//       return serializedObj
+//     }, {})
+//   }
+// }
 
 // writeToLogFile({
 //   "caller": {
