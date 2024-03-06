@@ -4,3 +4,6 @@ keys.dat
 *.png
 *.mov
 *.mp4
+large-call*
+images
+tmp-videos
