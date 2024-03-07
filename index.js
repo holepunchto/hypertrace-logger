@@ -14,12 +14,17 @@ console.log('Check for startup issues', 4)
 goodbye(() => server.close())
 
 let userCount = 0
-server.on('connection', socket => {
+server.on('connection', async socket => {
   userCount += 1
   const swarmId = socket.remotePublicKey.toString('hex')
   const swarmIdShort = swarmId.slice(0, 8)
   const generatedUserId = `User-${userCount}`
   console.log(`Got connection from ${swarmIdShort}. Full swarmId: ${swarmId}`)
+
+  await writeToLogFile({
+    json: { tracingConnectionStarted: true },
+    logFilename: `${swarmId}.log`
+  })
 
   socket.setKeepAlive(5000)
   socket.on('error', err => console.error(err))
