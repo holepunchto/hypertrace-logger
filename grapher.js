@@ -12,6 +12,7 @@ class Grapher {
   nextImgNumber = 0
   generatingImage = false
   generateImageQueue = []
+  lastGeneratedScriptWithoutTitle = null
 
   constructor () {
     fs.mkdirSync('images', { recursive: true })
@@ -123,6 +124,18 @@ class Grapher {
   generateNextImage () {
     this.generatingImage = true
     const { filename, script } = this.generateImageQueue.shift()
+    const scriptWithoutTitle = script.split('\n').filter(s => s.indexOf('title: ') < 0).join('\n')
+    const shouldGenerateImage = scriptWithoutTitle !== this.lastGeneratedScriptWithoutTitle
+
+    if (!shouldGenerateImage) {
+      if (this.generateImageQueue.length > 0) {
+        this.generateNextImage()
+      } else {
+        this.generatingImage = false
+      }
+      return
+    }
+
     const mmdc = spawn('mmdc', ['-i', '-', '-o', filename])
     mmdc.on('close', async () => {
       let imgAsString
@@ -134,6 +147,8 @@ class Grapher {
       }
 
       if (imgAsString) console.log(imgAsString)
+
+      this.lastGeneratedScriptWithoutTitle = scriptWithoutTitle
 
       if (this.generateImageQueue.length > 0) {
         this.generateNextImage()
