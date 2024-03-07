@@ -16,9 +16,10 @@ goodbye(() => server.close())
 let userCount = 0
 server.on('connection', socket => {
   userCount += 1
-  const rpk = socket.remotePublicKey.toString('hex').substr(0, 8)
+  const swarmId = socket.remotePublicKey.toString('hex')
+  const swarmIdShort = swarmId.slice(0, 8)
   const generatedUserId = `User-${userCount}`
-  console.log(`Got connection from ${rpk}`)
+  console.log(`Got connection from ${swarmIdShort}. Full swarmId: ${swarmId}`)
 
   socket.setKeepAlive(5000)
   socket.on('error', err => console.error(err))
@@ -30,13 +31,13 @@ server.on('connection', socket => {
       const timestamp = new Date().toISOString()
       json.time = timestamp
 
-      const userId = json.props?.userId || json.props?.username || json.props?.alias || generatedUserId
-      json.userId = `${userId}___${rpk}`
+      const userId = (json.props?.username || json.props?.alias || generatedUserId).replace(/[^\x00-\x7F]/g, '').replaceAll(' ', '_')
+      json.userId = `${userId}___${swarmIdShort}`
       grapher.add(json)
 
       await writeToLogFile({
         json,
-        logFilename: `${rpk}.log`
+        logFilename: `${swarmId}.log`
       })
     } catch (err) {
       console.error(err?.config?.data || err)

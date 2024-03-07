@@ -125,8 +125,15 @@ class Grapher {
     const { filename, script } = this.generateImageQueue.shift()
     const mmdc = spawn('mmdc', ['-i', '-', '-o', filename])
     mmdc.on('close', async () => {
-      const imgAsString = await imgcat(filename)
-      console.log(imgAsString)
+      let imgAsString
+      try {
+        imgAsString = await imgcat(filename)
+      } catch (err) {
+        console.log(`[ERROR] CANNOT PRINT ${filename}`)
+        console.log(script)
+      }
+
+      if (imgAsString) console.log(imgAsString)
 
       if (this.generateImageQueue.length > 0) {
         this.generateNextImage()
@@ -154,7 +161,7 @@ class Grapher {
 
     if (id === 'stream-open') {
       const { publicKey, remotePublicKey } = caller.props.stream
-      console.log(`[${userId}] [OPEN] ${publicKey} -> ${remotePublicKey}`)
+      console.log(`[${userId}] [OPEN] ${remotePublicKey} -> ${publicKey}`)
       const fromUser = this.publicKeyToUser[publicKey]
       const toUser = this.publicKeyToUser[remotePublicKey]
       const shouldFilterOut = !fromUser || !toUser
@@ -172,6 +179,7 @@ class Grapher {
 
     if (id === 'stream-close') {
       const { publicKey, remotePublicKey } = caller.props.stream
+      console.log(`[${userId}] [CLOSE] ${remotePublicKey} -> ${publicKey}`)
       const { code } = caller.props.error || {}
       const fromUser = this.publicKeyToUser[publicKey]
       const toUser = this.publicKeyToUser[remotePublicKey]
@@ -214,23 +222,16 @@ if (isRunThroughCli) {
       .split('\n')
       .map(entry => {
         entry = JSON.parse(entry)
-        entry.userId = entry.props?.userId || entry.props?.username || entry.props?.alias || `User-${index + 1}` // TODO: Should have already been set by keet-desktop
+        const userId = (entry.props?.username || entry.props?.alias || generatedUserId).replace(/[^\x00-\x7F]/g, '').replaceAll(' ', '_')
+        const swarmIdShort = entry.props?.swarmId?.slice(0, 8)
+        entry.userId = swarmIdShort ? `${userId}___${swarmIdShort}` : userId
         return entry
       })
     )
     .flat()
     .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
 
-  // fs.writeFileSync(`${dir}/combinedLogFileSortedByTime.json`, JSON.stringify(combinedLogFileSortedByTime))
-
-  // // First get all users (this is to ensure that we know all users when we go through log entries)
-  // combinedLogFileSortedByTime
-  //   .forEach(entry => {
-  //     const { caller, id, userId } = entry
-  //     if (id === 'listen') {
-  //       const { publicKey } = caller.props
-  //       grapher.publicKeyToUser[publicKey] = userId
-  //     }
-  //   })
   combinedLogFileSortedByTime.forEach(entry => grapher.add(entry))
+
+  // fs.writeFileSync(`${dir}/combinedLogFileSortedByTime.json`, JSON.stringify(combinedLogFileSortedByTime))
 }
