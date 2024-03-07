@@ -16,8 +16,9 @@ goodbye(() => server.close())
 let userCount = 0
 server.on('connection', socket => {
   userCount += 1
-  const userId = `User-${userCount}`
-  console.log(`Got connection from ${socket.remotePublicKey.toString('hex')}`)
+  const rpk = socket.remotePublicKey.toString('hex').substr(0, 8)
+  const generatedUserId = `User-${userCount}`
+  console.log(`Got connection from ${rpk}`)
 
   socket.setKeepAlive(5000)
   socket.on('error', err => console.error(err))
@@ -28,11 +29,14 @@ server.on('connection', socket => {
       const json = JSON.parse(data)
       const timestamp = new Date().toISOString()
       json.time = timestamp
-      json.userId = json.userId || userId // TODO: Should have already been set keet-desktop
+
+      const userId = json.props?.userId || json.props?.username || json.props?.alias || generatedUserId
+      json.userId = `${userId}___${rpk}`
       grapher.add(json)
+
       await writeToLogFile({
         json,
-        logFilename: `${socket.remotePublicKey.toString('hex')}.log`
+        logFilename: `${rpk}.log`
       })
     } catch (err) {
       console.error(err?.config?.data || err)

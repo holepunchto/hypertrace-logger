@@ -6,7 +6,7 @@ const imagesDir = './images'
 const outputDir = './tmp-videos'
 const outputFilename = 'video-by-actual-time.mov'
 
-if (!fs.existsSync(outputDir)){
+if (!fs.existsSync(outputDir)) {
   fs.mkdirSync(outputDir)
 }
 
@@ -30,7 +30,7 @@ imageFiles.forEach((file, index) => {
   const outputPath = path.join(outputDir, `clip${index.toString().padStart(4, '0')}.mov`)
 
   const frameRate = 1000 / duration
-  const cmd = `ffmpeg -framerate ${frameRate} -i "${inputPath}" -vf "pad=784:760:(ow-iw)/2:0:white,setpts=PTS-STARTPTS" -c:v libx264 -pix_fmt yuv420p -movflags +faststart -y "${outputPath}"`;
+  const cmd = `ffmpeg -framerate ${frameRate} -i "${inputPath}" -vf "pad=784:760:(ow-iw)/2:0:white,setpts=PTS-STARTPTS" -c:v libx264 -pix_fmt yuv420p -movflags +faststart -y "${outputPath}"`
 
   execSync(cmd)
 })

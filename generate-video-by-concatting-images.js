@@ -1,4 +1,4 @@
-import { spawn, execSync } from 'child_process'
+import { execSync } from 'child_process'
 import sharp from 'sharp'
 import path from 'path'
 import fs from 'fs'

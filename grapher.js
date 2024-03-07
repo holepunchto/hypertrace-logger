@@ -5,7 +5,6 @@ import { spawn } from 'child_process'
 
 const isRunThroughCli = import.meta.url === `file://${process.argv[1]}`
 
-let hasOutputted = false
 class Grapher {
   usersPublicKeysConnections = {} // { userId => { publicKey => [remotePublicKeys] } }
   publicKeyToUser = {} // { publicKey => userId }
@@ -28,6 +27,7 @@ class Grapher {
 
     const writtenConnections = []
     let connectionsString = Object.entries(this.usersConnections)
+      .sort(([fromUserA], [fromUserB]) => fromUserA.localeCompare(fromUserB)) // Sorting helps generating a more stable image
       .map(([fromUser, connections]) => connections
         .map(toUser => {
           const isBothWays = this.usersConnections[toUser]?.includes(fromUser)
@@ -56,10 +56,10 @@ class Grapher {
         const missingConnectionsBetweenThisUserAndOthers = Object.keys(this.usersConnections)
           .filter(toUser => fromUser !== toUser)
           .filter(toUser => !(
-            writtenConnections.includes(`${toUser} --> ${fromUser}`)
-              || writtenConnections.includes(`${fromUser} --> ${toUser}`)
-              || writtenConnections.includes(`${toUser} --- ${fromUser}`)
-              || writtenConnections.includes(`${fromUser} --- ${toUser}`)
+            writtenConnections.includes(`${toUser} --> ${fromUser}`) ||
+            writtenConnections.includes(`${fromUser} --> ${toUser}`) ||
+            writtenConnections.includes(`${toUser} --- ${fromUser}`) ||
+            writtenConnections.includes(`${fromUser} --- ${toUser}`)
           ))
         missingConnectionsBetweenThisUserAndOthers.forEach(toUser => {
           const isAlreadyWritten = connectionsString.includes(`${toUser} -.- ${fromUser}`)
@@ -92,7 +92,7 @@ class Grapher {
         ? i
         : null
       )
-      .filter (str => str !== null)
+      .filter(str => str !== null)
 
     // Error: ENOENT: no such file or directory, open 'img-0012-2024-03-05T10.29.03.507Z.png'
 
@@ -144,15 +144,17 @@ class Grapher {
       Sometimes a `listening` entry will come after a stream-open/close entry that references it.
       This means that publicKeyToUser[publicKey] is not set, and it won't be logged.
     */
+    console.log(`[${userId}] [${id}] ${object.className}@${caller.functionName}`)
+
     if (id === 'listen') {
       const { publicKey } = caller.props
       this.publicKeyToUser[publicKey] = userId
-      // console.log(`[LISTEN] ${publicKey} -> ${userId}`)
+      console.log(`[${userId}] [LISTEN] ${publicKey} -> ${userId}`)
     }
 
     if (id === 'stream-open') {
       const { publicKey, remotePublicKey } = caller.props.stream
-      // console.log(`[OPEN] ${publicKey} -> ${remotePublicKey}`)
+      console.log(`[${userId}] [OPEN] ${publicKey} -> ${remotePublicKey}`)
       const fromUser = this.publicKeyToUser[publicKey]
       const toUser = this.publicKeyToUser[remotePublicKey]
       const shouldFilterOut = !fromUser || !toUser
@@ -180,7 +182,10 @@ class Grapher {
       if (!this.usersConnections[fromUser]?.length) delete this.usersConnections[fromUser]
       this.drawDiagram(time)
 
-      this.usersPublicKeysConnections[userId].connections[publicKey] = this.usersPublicKeysConnections[userId].connections[publicKey].filter(k => k !== remotePublicKey)
+      if (this.usersPublicKeysConnections[userId]) {
+        this.usersPublicKeysConnections[userId].connections[publicKey] = this.usersPublicKeysConnections[userId].connections[publicKey].filter(k => k !== remotePublicKey)
+      }
+
       console.log(`[${time}] ${fromUser} (${this.totalConnections(fromUser)} conns) x> ${toUser} (${this.totalConnections(toUser)} conns), reason=${code || null}`)
     }
   }
@@ -209,7 +214,7 @@ if (isRunThroughCli) {
       .split('\n')
       .map(entry => {
         entry = JSON.parse(entry)
-        entry.userId = entry.userId || `User-${index + 1}` // TODO: Should have already been set by keet-desktop
+        entry.userId = entry.props?.userId || entry.props?.username || entry.props?.alias || `User-${index + 1}` // TODO: Should have already been set by keet-desktop
         return entry
       })
     )
