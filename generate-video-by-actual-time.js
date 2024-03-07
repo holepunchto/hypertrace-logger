@@ -1,10 +1,14 @@
 import fs from 'fs'
 import { execSync } from 'child_process'
 import path from 'path'
+import sharp from 'sharp'
 
 const imagesDir = './images'
 const outputDir = './tmp-videos'
 const outputFilename = 'video-by-actual-time.mov'
+let { maxWidth, maxHeight } = await findMaxDimensions(imagesDir)
+maxWidth = maxWidth % 2 === 0 ? maxWidth : maxWidth + 1
+maxHeight = maxHeight % 2 === 0 ? maxHeight : maxHeight + 1
 
 if (!fs.existsSync(outputDir)) {
   fs.mkdirSync(outputDir)
@@ -30,7 +34,7 @@ imageFiles.forEach((file, index) => {
   const outputPath = path.join(outputDir, `clip${index.toString().padStart(4, '0')}.mov`)
 
   const frameRate = 1000 / duration
-  const cmd = `ffmpeg -framerate ${frameRate} -i "${inputPath}" -vf "pad=784:760:(ow-iw)/2:0:white,setpts=PTS-STARTPTS" -c:v libx264 -pix_fmt yuv420p -movflags +faststart -y "${outputPath}"`
+  const cmd = `ffmpeg -framerate ${frameRate} -i "${inputPath}" -vf "pad=${maxWidth}:${maxHeight}:(ow-iw)/2:0:white,setpts=PTS-STARTPTS" -c:v libx264 -pix_fmt yuv420p -movflags +faststart -y "${outputPath}"`
 
   execSync(cmd)
 })
@@ -43,3 +47,26 @@ const concatCmd = `ffmpeg -f concat -safe 0 -i "${path.join(outputDir, 'filelist
 execSync(concatCmd)
 
 console.log('Done')
+
+async function findMaxDimensions (dir) {
+  const files = fs.readdirSync(dir).filter(file => file.endsWith('.png'))
+
+  let maxWidth = 0
+  let maxHeight = 0
+
+  for (const file of files) {
+    const filePath = path.join(dir, file)
+    const { width, height } = await sharp(filePath).metadata()
+    if (width > maxWidth) {
+      maxWidth = width
+    }
+    if (height > maxHeight) {
+      maxHeight = height
+    }
+  }
+
+  return {
+    maxWidth,
+    maxHeight
+  }
+}
