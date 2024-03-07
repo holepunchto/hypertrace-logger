@@ -25,17 +25,17 @@ class Grapher {
       Sometimes a `listening` entry will come after a stream-open/close entry that references it.
       This means that publicKeyToUser[publicKey] is not set, and it won't be logged.
     */
-    // console.log(`[${userId}] [${id}] ${object.className}@${caller.functionName}`)
+    // console.log(`[${time}] [${userId}] [${id}] ${object.className}@${caller.functionName}`)
 
     if (id === 'listen') {
       const { publicKey } = caller.props
       this.publicKeyToUser[publicKey] = userId
-      console.log(`[${userId}] [LISTEN] ${publicKey} -> ${userId}`)
+      // console.log(`[${time}] [${userId}] [LISTEN] ${publicKey} -> ${userId}`)
     }
 
     if (id === 'stream-open') {
       const { publicKey, remotePublicKey } = caller.props.stream
-      console.log(`[${userId}] [OPEN] ${remotePublicKey} -> ${publicKey}`)
+      // console.log(`[${time}] [${userId}] [OPEN] ${remotePublicKey} -> ${publicKey}`)
       const fromUser = this.publicKeyToUser[publicKey]
       const toUser = this.publicKeyToUser[remotePublicKey]
       const shouldFilterOut = !fromUser || !toUser
@@ -48,12 +48,12 @@ class Grapher {
       this.usersPublicKeysConnections[userId] = this.usersPublicKeysConnections[userId] || { connections: {} }
       this.usersPublicKeysConnections[userId].connections[publicKey] = this.usersPublicKeysConnections[userId].connections[publicKey] || []
       this.usersPublicKeysConnections[userId].connections[publicKey].push(remotePublicKey)
-      console.log(`[${time}] ${fromUser} (${this.totalConnections(fromUser)} conns) => ${toUser} (${this.totalConnections(toUser)} conns)`)
+      console.log(`[${time}] Stream opened. ${fromUser} (${this.totalConnections(fromUser)} conns) => ${toUser} (${this.totalConnections(toUser)} conns)`)
     }
 
     if (id === 'stream-close') {
       const { publicKey, remotePublicKey } = caller.props.stream
-      console.log(`[${userId}] [CLOSE] ${remotePublicKey} -> ${publicKey}`)
+      // console.log(`[${time}] [${userId}] [CLOSE] ${remotePublicKey} -> ${publicKey}`)
       const { code } = caller.props.error || {}
       const fromUser = this.publicKeyToUser[publicKey]
       const toUser = this.publicKeyToUser[remotePublicKey]
@@ -68,7 +68,7 @@ class Grapher {
         this.usersPublicKeysConnections[userId].connections[publicKey] = this.usersPublicKeysConnections[userId].connections[publicKey].filter(k => k !== remotePublicKey)
       }
 
-      console.log(`[${time}] ${fromUser} (${this.totalConnections(fromUser)} conns) x> ${toUser} (${this.totalConnections(toUser)} conns), reason=${code || null}`)
+      console.log(`[${time}] Stream closed. ${fromUser} (${this.totalConnections(fromUser)} conns) x> ${toUser} (${this.totalConnections(toUser)} conns), reason=${code || null}`)
     }
   }
 
