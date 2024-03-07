@@ -18,6 +18,60 @@ class Grapher {
     fs.mkdirSync('images', { recursive: true })
   }
 
+  add ({ props, caller, id, object, time, userId }) {
+    /*
+      !!!Note!!!
+      Not sure this is still the case, but leaving the comment here:
+      Sometimes a `listening` entry will come after a stream-open/close entry that references it.
+      This means that publicKeyToUser[publicKey] is not set, and it won't be logged.
+    */
+    // console.log(`[${userId}] [${id}] ${object.className}@${caller.functionName}`)
+
+    if (id === 'listen') {
+      const { publicKey } = caller.props
+      this.publicKeyToUser[publicKey] = userId
+      console.log(`[${userId}] [LISTEN] ${publicKey} -> ${userId}`)
+    }
+
+    if (id === 'stream-open') {
+      const { publicKey, remotePublicKey } = caller.props.stream
+      console.log(`[${userId}] [OPEN] ${remotePublicKey} -> ${publicKey}`)
+      const fromUser = this.publicKeyToUser[publicKey]
+      const toUser = this.publicKeyToUser[remotePublicKey]
+      const shouldFilterOut = !fromUser || !toUser
+      if (shouldFilterOut) return
+
+      this.usersConnections[fromUser] = this.usersConnections[fromUser] || []
+      this.usersConnections[fromUser].push(toUser)
+      this.drawDiagram(time)
+
+      this.usersPublicKeysConnections[userId] = this.usersPublicKeysConnections[userId] || { connections: {} }
+      this.usersPublicKeysConnections[userId].connections[publicKey] = this.usersPublicKeysConnections[userId].connections[publicKey] || []
+      this.usersPublicKeysConnections[userId].connections[publicKey].push(remotePublicKey)
+      console.log(`[${time}] ${fromUser} (${this.totalConnections(fromUser)} conns) => ${toUser} (${this.totalConnections(toUser)} conns)`)
+    }
+
+    if (id === 'stream-close') {
+      const { publicKey, remotePublicKey } = caller.props.stream
+      console.log(`[${userId}] [CLOSE] ${remotePublicKey} -> ${publicKey}`)
+      const { code } = caller.props.error || {}
+      const fromUser = this.publicKeyToUser[publicKey]
+      const toUser = this.publicKeyToUser[remotePublicKey]
+      const shouldFilterOut = !fromUser || !toUser
+      if (shouldFilterOut) return
+
+      this.usersConnections[fromUser] = this.usersConnections[fromUser]?.filter(u => u !== toUser)
+      if (!this.usersConnections[fromUser]?.length) delete this.usersConnections[fromUser]
+      this.drawDiagram(time)
+
+      if (this.usersPublicKeysConnections[userId]) {
+        this.usersPublicKeysConnections[userId].connections[publicKey] = this.usersPublicKeysConnections[userId].connections[publicKey].filter(k => k !== remotePublicKey)
+      }
+
+      console.log(`[${time}] ${fromUser} (${this.totalConnections(fromUser)} conns) x> ${toUser} (${this.totalConnections(toUser)} conns), reason=${code || null}`)
+    }
+  }
+
   totalConnections (userId) {
     if (!this.usersPublicKeysConnections[userId]) return 0
     return Object.entries(this.usersPublicKeysConnections[userId].connections).reduce((totalCount, [publicKey, connections]) => totalCount + connections.length, 0)
@@ -158,59 +212,6 @@ class Grapher {
     })
     mmdc.stdin.write(script)
     mmdc.stdin.end()
-  }
-
-  add ({ props, caller, id, object, time, userId }) {
-    /*
-      !!!Note!!!
-      Sometimes a `listening` entry will come after a stream-open/close entry that references it.
-      This means that publicKeyToUser[publicKey] is not set, and it won't be logged.
-    */
-    console.log(`[${userId}] [${id}] ${object.className}@${caller.functionName}`)
-
-    if (id === 'listen') {
-      const { publicKey } = caller.props
-      this.publicKeyToUser[publicKey] = userId
-      console.log(`[${userId}] [LISTEN] ${publicKey} -> ${userId}`)
-    }
-
-    if (id === 'stream-open') {
-      const { publicKey, remotePublicKey } = caller.props.stream
-      console.log(`[${userId}] [OPEN] ${remotePublicKey} -> ${publicKey}`)
-      const fromUser = this.publicKeyToUser[publicKey]
-      const toUser = this.publicKeyToUser[remotePublicKey]
-      const shouldFilterOut = !fromUser || !toUser
-      if (shouldFilterOut) return
-
-      this.usersConnections[fromUser] = this.usersConnections[fromUser] || []
-      this.usersConnections[fromUser].push(toUser)
-      this.drawDiagram(time)
-
-      this.usersPublicKeysConnections[userId] = this.usersPublicKeysConnections[userId] || { connections: {} }
-      this.usersPublicKeysConnections[userId].connections[publicKey] = this.usersPublicKeysConnections[userId].connections[publicKey] || []
-      this.usersPublicKeysConnections[userId].connections[publicKey].push(remotePublicKey)
-      console.log(`[${time}] ${fromUser} (${this.totalConnections(fromUser)} conns) => ${toUser} (${this.totalConnections(toUser)} conns)`)
-    }
-
-    if (id === 'stream-close') {
-      const { publicKey, remotePublicKey } = caller.props.stream
-      console.log(`[${userId}] [CLOSE] ${remotePublicKey} -> ${publicKey}`)
-      const { code } = caller.props.error || {}
-      const fromUser = this.publicKeyToUser[publicKey]
-      const toUser = this.publicKeyToUser[remotePublicKey]
-      const shouldFilterOut = !fromUser || !toUser
-      if (shouldFilterOut) return
-
-      this.usersConnections[fromUser] = this.usersConnections[fromUser]?.filter(u => u !== toUser)
-      if (!this.usersConnections[fromUser]?.length) delete this.usersConnections[fromUser]
-      this.drawDiagram(time)
-
-      if (this.usersPublicKeysConnections[userId]) {
-        this.usersPublicKeysConnections[userId].connections[publicKey] = this.usersPublicKeysConnections[userId].connections[publicKey].filter(k => k !== remotePublicKey)
-      }
-
-      console.log(`[${time}] ${fromUser} (${this.totalConnections(fromUser)} conns) x> ${toUser} (${this.totalConnections(toUser)} conns), reason=${code || null}`)
-    }
   }
 }
 
