@@ -31,7 +31,7 @@ server.on('connection', socket => {
       const timestamp = new Date().toISOString()
       json.time = timestamp
 
-      const userId = (json.props?.username || json.props?.alias || generatedUserId).replace(/[^\x00-\x7F]/g, '').replaceAll(' ', '_')
+      const userId = (json.props?.username || json.props?.alias || generatedUserId).replace(/[^\x00-\x7F]/g, '').replaceAll(' ', '_') // eslint-disable-line no-control-regex
       json.userId = `${userId}___${swarmIdShort}`
       grapher.add(json)
 
