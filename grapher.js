@@ -238,7 +238,7 @@ if (isRunThroughCli) {
       .split('\n')
       .map(entry => {
         entry = JSON.parse(entry)
-        const userId = (entry.props?.username || entry.props?.alias || generatedUserId).replace(/[^\x00-\x7F]/g, '').replaceAll(' ', '_')
+        const userId = (entry.props?.username || entry.props?.alias || `User-${index + 1}`).replace(/[^\x00-\x7F]/g, '').replaceAll(' ', '_') // eslint-disable-line no-control-regex
         const swarmIdShort = entry.props?.swarmId?.slice(0, 8)
         entry.userId = swarmIdShort ? `${userId}___${swarmIdShort}` : userId
         return entry
