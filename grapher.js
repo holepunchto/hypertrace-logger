@@ -18,14 +18,23 @@ class Grapher {
     fs.mkdirSync('images', { recursive: true })
   }
 
-  add ({ props, caller, id, object, time, userId }) {
+  clearConnections (swarmId) {
+    delete this.publicKeyToUser[swarmId]
+    // this.drawDiagram()
+  }
+
+  add ({ props, caller, id, object, tracingConnectionEnabled, traceNumber, time, userId }) {
     /*
       !!!Note!!!
       Not sure this is still the case, but leaving the comment here:
       Sometimes a `listening` entry will come after a stream-open/close entry that references it.
       This means that publicKeyToUser[publicKey] is not set, and it won't be logged.
     */
-    // console.log(`[${time}] [${userId}] [${id}] ${object.className}@${caller.functionName}`)
+    // console.log(`[${time}] [${userId}] [#${traceNumber}] [${id}] ${object.className}@${caller.functionName}`)
+
+    if (tracingConnectionEnabled !== undefined) {
+      console.log(`[${time}] [${userId}] [#${traceNumber}] Tracing ${tracingConnectionEnabled ? 'enabled' : 'disable'}`)
+    }
 
     if (id === 'listen') {
       const { publicKey } = caller.props
@@ -48,7 +57,7 @@ class Grapher {
       this.usersPublicKeysConnections[userId] = this.usersPublicKeysConnections[userId] || { connections: {} }
       this.usersPublicKeysConnections[userId].connections[publicKey] = this.usersPublicKeysConnections[userId].connections[publicKey] || []
       this.usersPublicKeysConnections[userId].connections[publicKey].push(remotePublicKey)
-      console.log(`[${time}] Stream opened. ${fromUser} (${this.totalConnections(fromUser)} conns) => ${toUser} (${this.totalConnections(toUser)} conns)`)
+      console.log(`[${time}] [${userId}] [#${traceNumber}] Stream opened. ${fromUser} (${this.totalConnections(fromUser)} conns) => ${toUser} (${this.totalConnections(toUser)} conns)`)
     }
 
     if (id === 'stream-close') {
@@ -68,7 +77,7 @@ class Grapher {
         this.usersPublicKeysConnections[userId].connections[publicKey] = this.usersPublicKeysConnections[userId].connections[publicKey].filter(k => k !== remotePublicKey)
       }
 
-      console.log(`[${time}] Stream closed. ${fromUser} (${this.totalConnections(fromUser)} conns) x> ${toUser} (${this.totalConnections(toUser)} conns), reason=${code || null}`)
+      console.log(`[${time}] [${userId}] [#${traceNumber}] Stream closed. ${fromUser} (${this.totalConnections(fromUser)} conns) x> ${toUser} (${this.totalConnections(toUser)} conns), reason=${code || null}`)
     }
   }
 

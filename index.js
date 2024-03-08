@@ -19,25 +19,45 @@ server.on('connection', async socket => {
   const swarmId = socket.remotePublicKey.toString('hex')
   const swarmIdShort = swarmId.slice(0, 8)
   const generatedUserId = `User-${userCount}`
+  let userId = generatedUserId
   console.log(`Got connection from ${swarmIdShort}. Full swarmId: ${swarmId}`)
 
+  // Clean up older connections
+  grapher.clearConnections(swarmId)
+
   await writeToLogFile({
-    json: { tracingConnectionStarted: true },
+    json: {
+      time: new Date().toISOString(),
+      tracingConnectionEnabled: true
+    },
     logFilename: `${swarmId}.log`
   })
 
   socket.setKeepAlive(5000)
-  socket.on('error', err => console.error(err))
+  socket.on('error', async err => {
+    console.error(`[${new Date().toISOString()}] [${userId}]`, err)
+
+    await writeToLogFile({
+      json: {
+        time: new Date().toISOString(),
+        userId,
+        tracingConnectionEnabled: false,
+        reason: err?.code || err?.message
+      },
+      logFilename: `${swarmId}.log`
+    })
+  })
   socket.on('data', async data => {
     try {
-      // console.log('[received]', data.toString())
       socket.pause()
-      const json = JSON.parse(data)
-      const timestamp = new Date().toISOString()
-      json.time = timestamp
+      data = JSON.parse(data)
+      userId = (data.props?.username || data.props?.alias || generatedUserId).replace(/[^\x00-\x7F]/g, '').replaceAll(' ', '_') + `___${swarmIdShort}` // eslint-disable-line no-control-regex
+      const json = {
+        time: new Date().toISOString(),
+        userId,
+        ...data
+      }
 
-      const userId = (json.props?.username || json.props?.alias || generatedUserId).replace(/[^\x00-\x7F]/g, '').replaceAll(' ', '_') // eslint-disable-line no-control-regex
-      json.userId = `${userId}___${swarmIdShort}`
       grapher.add(json)
 
       await writeToLogFile({
