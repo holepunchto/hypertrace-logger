@@ -3,13 +3,10 @@ import fs from 'fs'
 import goodbye from 'graceful-goodbye'
 import Grapher from './grapher.js'
 
-console.log('Check for startup issues', 1)
 const node = new DHT()
-console.log('Check for startup issues', 2)
 const server = node.createServer()
-console.log('Check for startup issues', 3)
 const grapher = new Grapher()
-console.log('Check for startup issues', 4)
+const sessions = new Map()
 
 goodbye(() => server.close())
 
@@ -19,18 +16,29 @@ server.on('connection', async socket => {
   const swarmId = socket.remotePublicKey.toString('hex')
   const swarmIdShort = swarmId.slice(0, 8)
   const generatedUserId = `User-${userCount}`
+  const logFilename = `${swarmId}.log`
   let userId = generatedUserId
-  console.log(`Got connection from ${swarmIdShort}. Full swarmId: ${swarmId}`)
+  console.log(`[NOTE] Got connection from ${swarmIdShort}. Full swarmId: ${swarmId}`)
+
+  // Upsert session
+  sessions.set(swarmId, sessions.get(swarmId) || {
+    lastSeenTraceSessionId: null,
+    lastSeenTraceNumber: null
+  })
+  const lastSeenSession = sessions.get(swarmId)
+
+  // Send handshake
+  socket.write(JSON.stringify(lastSeenSession))
 
   // Clean up older connections
   grapher.clearConnections(swarmId)
 
   await writeToLogFile({
+    logFilename,
     json: {
       time: new Date().toISOString(),
       tracingConnectionEnabled: true
-    },
-    logFilename: `${swarmId}.log`
+    }
   })
 
   socket.setKeepAlive(5000)
@@ -38,13 +46,13 @@ server.on('connection', async socket => {
     console.error(`[${new Date().toISOString()}] [${userId}]`, err)
 
     await writeToLogFile({
+      logFilename,
       json: {
         time: new Date().toISOString(),
         userId,
         tracingConnectionEnabled: false,
         reason: err?.code || err?.message
-      },
-      logFilename: `${swarmId}.log`
+      }
     })
   })
   socket.on('data', async data => {
@@ -52,6 +60,30 @@ server.on('connection', async socket => {
       socket.pause()
       data = JSON.parse(data)
       userId = (data.props?.username || data.props?.alias || generatedUserId).replace(/[^\x00-\x7F]/g, '').replaceAll(' ', '_') + `___${swarmIdShort}` // eslint-disable-line no-control-regex
+
+      const session = sessions.get(swarmId)
+      const isSameSession = session.lastSeenTraceSessionId === data.traceSessionId
+      const isNextTraceNumber = (session.lastSeenTraceNumber + 1) === data.traceNumber
+      if (!isSameSession) {
+        const note = `New session from ${swarmId}. sessionId=${data.traceSessionId}`
+        console.log(`[${new Date().toISOString()}] [NOTE] [${userId}] ${note}`)
+        await writeToLogFile({
+          logFilename,
+          json: { time: new Date().toISOString(), note }
+        })
+      }
+      if (isSameSession && !isNextTraceNumber) {
+        const note = `Skipped ${data.traceNumber - session.lastSeenTraceNumber - 1} messages! lastSeenTraceNumber=${session.lastSeenTraceNumber} traceNumber=${data.traceNumber}`
+        console.warn(`[${new Date().toISOString()}] [WARNING] [${userId}] ${note}`)
+        await writeToLogFile({
+          logFilename,
+          json: { time: new Date().toISOString(), note }
+        })
+      }
+
+      session.lastSeenTraceSessionId = data.traceSessionId
+      session.lastSeenTraceNumber = data.traceNumber
+
       const json = {
         time: new Date().toISOString(),
         userId,
@@ -75,7 +107,6 @@ server.on('connection', async socket => {
 main()
 
 async function main () {
-  console.log('Check for startup issues', 5)
   const doesKeysExists = fs.existsSync('./keys.dat')
   if (!doesKeysExists) {
     const kp = DHT.keyPair()
@@ -85,21 +116,18 @@ async function main () {
     }))
   }
 
-  console.log('Check for startup issues', 6)
   const kp = JSON.parse(fs.readFileSync('./keys.dat'))
   const keyPair = {
     publicKey: Buffer.from(kp.publicKey, 'hex'),
     secretKey: Buffer.from(kp.secretKey, 'hex')
   }
-  console.log('Check for startup issues', 7)
+
   await server.listen(keyPair)
   console.log(`server started on ${keyPair.publicKey.toString('hex')}`)
 }
 
 async function writeToLogFile ({ json, logFilename }) {
   const logEntry = JSON.stringify(json)
-  // console.log('[stored]', logEntry)
-  // const logEntry = JSON.stringify(json)
 
   return fs.promises.appendFile(logFilename, `${logEntry}\n`)
 
@@ -109,48 +137,3 @@ async function writeToLogFile ({ json, logFilename }) {
   // delete labels.caller_props_signal_description_sdp
   // delete labels.object_props_signal_description_sdp
 }
-
-// A simple serializer whose main responsibility is to turn buffers into hex-strings
-// function serializeJsonWithBuffers (obj) {
-//   return JSON.stringify(serializeNoStringify(obj))
-
-//   function serializeNoStringify (obj) {
-//     if (obj === null) return obj
-//     if (Buffer.isBuffer(obj)) return obj.toString('hex')
-//     if (Array.isArray(obj)) return obj.map(v => serializeNoStringify(v))
-//     if (typeof obj !== 'object') return obj
-//     return Object.entries(obj).reduce((serializedObj, [key, val]) => {
-//       serializedObj[key] = serializeNoStringify(val)
-//       return serializedObj
-//     }, {})
-//   }
-// }
-
-// writeToLogFile({
-//   "caller": {
-//     "functionName": "_observeSignalEvents",
-//     "props": {
-//       "swarmId": "4mhsoa8riyxu7ozwnsfrbhyj3nqxbbb94h4bgsa84y46ybh4a11y",
-//       "signal": {
-//         "description": {
-//           "type": "answer",
-//           "sdp": "v=0\r\no=- 507648..."
-//         }
-//       }
-//     }
-//   },
-//   "id": "null",
-//   "object": {
-//     "id": "1",
-//     "className": "KeetCall",
-//     "props": {
-//       "swarmId": "4mhsoa8riyxu7ozwnsfrbhyj3nqxbbb94h4bgsa84y46ybh4a11y",
-//       "signal": {
-//         "description": {
-//           "type": "answer",
-//           "sdp": "v=0\r\no=- 507648..."
-//         }
-//       }
-//     }
-//   }
-// })
