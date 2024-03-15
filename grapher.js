@@ -30,7 +30,7 @@ class Grapher {
       Sometimes a `listening` entry will come after a stream-open/close entry that references it.
       This means that publicKeyToUser[publicKey] is not set, and it won't be logged.
     */
-    // console.log(`[${time}] [${userId}] [#${traceNumber}] [${id}] ${object.className}@${caller.functionName}`)
+    console.log(`[${time}] [${userId}] [#${traceNumber}] [${id}] ${object.className}@${caller.functionName}`)
 
     if (tracingConnectionEnabled !== undefined) {
       console.log(`[${time}] [${userId}] [#${traceNumber}] Tracing ${tracingConnectionEnabled ? 'enabled' : 'disable'}`)

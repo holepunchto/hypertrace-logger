@@ -4,7 +4,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "standard"
+    "test": "standard",
+    "server": "node start-server.js"
   },
   "keywords": [],
   "author": "",
