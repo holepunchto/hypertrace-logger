@@ -2,7 +2,7 @@
   "name": "keet-hypertrace-logger",
   "version": "1.0.0",
   "main": "index.js",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "test": "standard",
     "server": "node start-server.js"

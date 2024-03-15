@@ -1,10 +1,10 @@
-import DHT from 'hyperdht'
-import fs from 'fs'
-import path from 'path'
+const DHT = require('hyperdht')
+const fs = require('fs')
+const path = require('path')
 
 const DEBUG = true
 
-export default class Server {
+module.exports = class Server {
   constructor ({ folder }) {
     this.userCount = 0
     this.folder = folder
@@ -32,7 +32,7 @@ export default class Server {
 
       socket.setKeepAlive(5000)
       socket.on('error', err => {
-        this.writeToLogFile({
+        this._writeToLogFile({
           swarmId,
           json: {
             note: `Socket error. code=${err.code} message=${err.message}`
@@ -51,7 +51,7 @@ export default class Server {
           if (!isSameSession) {
             const note = `New session from ${swarmId}. sessionId=${data.traceSessionId}`
             console.log(`[${new Date().toISOString()}] [NOTE] [${userId}] ${note}`)
-            await this.writeToLogFile({
+            await this._writeToLogFile({
               swarmId,
               json: { note }
             })
@@ -59,7 +59,7 @@ export default class Server {
           if (isSameSession && !isNextTraceNumber) {
             const note = `Skipped ${data.traceNumber - session.lastSeenTraceNumber - 1} messages! lastSeenTraceNumber=${session.lastSeenTraceNumber} traceNumber=${data.traceNumber}`
             console.warn(`[${new Date().toISOString()}] [WARNING] [${userId}] ${note}`)
-            await this.writeToLogFile({
+            await this._writeToLogFile({
               swarmId,
               json: { note }
             })
@@ -68,7 +68,7 @@ export default class Server {
           session.lastSeenTraceSessionId = data.traceSessionId
           session.lastSeenTraceNumber = data.traceNumber
 
-          await this.writeToLogFile({
+          await this._writeToLogFile({
             swarmId,
             json: {
               userId,
@@ -88,7 +88,7 @@ export default class Server {
     return await this.server.listen(keyPair)
   }
 
-  async writeToLogFile ({ json, swarmId }) {
+  async _writeToLogFile ({ json, swarmId }) {
     json = {
       time: new Date().toISOString(),
       ...json
@@ -98,7 +98,7 @@ export default class Server {
     const logEntry = JSON.stringify(json)
 
     if (DEBUG) {
-      const { props, caller, id, object, note, traceNumber, time, userId } = json
+      const { caller, id, object, note, traceNumber, time, userId } = json
 
       if (note) {
         console.log(`[${time}] [${swarmId}] [NOTE] ${note}`)

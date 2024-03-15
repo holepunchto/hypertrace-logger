@@ -1,11 +1,11 @@
-import { setTraceFunction, clearTraceFunction } from 'hypertrace'
-import b4a from 'b4a'
-import { EventEmitter } from 'events'
+const hypertrace = require('hypertrace')
+const { EventEmitter } = require('events')
 
-export default class Client extends EventEmitter {
-  constructor (backend) {
+const { setTraceFunction, clearTraceFunction } = hypertrace
+
+module.exports = class Client extends EventEmitter {
+  constructor () {
     super()
-    this._backend = backend
     this._props = null
     this._tracingStream = null
     this._connected = false
@@ -14,30 +14,14 @@ export default class Client extends EventEmitter {
     this._traceSessionId = Math.random().toString().slice(2)
   }
 
-  async _createStream ({ tracingPublicKey, getInitialProps, backoff }) {
-    await this._backend.ready()
-    const initialProps = (await getInitialProps()) || {}
+  _createStream ({ createSocket }) {
+    const socket = createSocket()
+    socket.setKeepAlive(5000)
 
-    this.addProps({
-      swarmId: b4a.toString(this._backend._swarm.keyPair.publicKey, 'hex'),
-      ...initialProps
-    })
-
-    if (backoff) {
-      const waitTime = Math.floor(10000 + Math.random() * 5000)
-      await new Promise(resolve => setTimeout(resolve, waitTime))
-    }
-
-    const dhtTracerSocket = this._backend._swarm.dht.connect(tracingPublicKey, {
-      keyPair: this._backend._swarm.keyPair,
-      relayThrough: this._backend._relayThrough(false)
-    })
-    dhtTracerSocket.setKeepAlive(5000)
-
-    return dhtTracerSocket
+    return socket
   }
 
-  async start (tracingPublicKey, { ignoreClassNames = [], getInitialProps = () => { } } = {}) {
+  async start ({ createSocket, ignoreClassNames = [], getInitialProps = () => { } } = {}) {
     if (this._tracingStream) return console.warn('[keet-backend] Cannot start tracing, as tracing is already running')
     const buffer = []
 
@@ -83,7 +67,10 @@ export default class Client extends EventEmitter {
       this._tracingStream?.write(jsonString)
     })
 
-    let tracingStream = await this._createStream({ tracingPublicKey, getInitialProps })
+    const initialProps = await getInitialProps()
+    if (initialProps) this.addProps(initialProps)
+
+    let tracingStream = this._createStream({ createSocket, getInitialProps })
 
     const onOpen = () => {
       this._connected = true
@@ -93,11 +80,11 @@ export default class Client extends EventEmitter {
       const { lastSeenTraceSessionId, lastSeenTraceNumber } = JSON.parse(data)
       const isSameSession = lastSeenTraceSessionId === this._traceSessionId
       const serverMessagesSeen = isSameSession
-        ? lastSeenTraceNumber
+        ? lastSeenTraceNumber + 1
         : 0
 
       buffer.forEach(({ traceNumber, jsonString }) => {
-        if (traceNumber <= serverMessagesSeen) return
+        if (traceNumber < serverMessagesSeen) return
         tracingStream.write(jsonString)
       })
 
@@ -107,13 +94,12 @@ export default class Client extends EventEmitter {
       this._connected = false
       this._tracingStream = null
 
-      if (this._backend.closing) {
-        this.emit('close')
-        return
-      }
-
       this.emit('reconnect')
-      tracingStream = await this._createStream({ tracingPublicKey, getInitialProps, backoff: true })
+
+      const waitTime = Math.floor(10000 + Math.random() * 5000)
+      await new Promise(resolve => setTimeout(resolve, waitTime))
+
+      tracingStream = this._createStream({ createSocket, getInitialProps, backoff: true })
       tracingStream.once('data', onHandshake)
       tracingStream.on('open', onOpen)
       tracingStream.on('error', onConnectionError)
