@@ -53,9 +53,14 @@ client.start({
 
 Creates Client
 
-#### async .start({ createSocket, ignoreClassNames = [], getInitialProps = () => {}})
+#### async .start({ createSocket, canSocketReconnect = () => true, ignoreClassNames = [], getInitialProps = () => {}})
 
 Starts the tracing. First start `setTracerFunction` for `hypertrace` and then creates socket with the passed `createSocket` function.
+
+- `createSocket`. Function that returns a socket
+- `canSocketReconnect` (optional). Whether or not the socket is ok to reconnect. If your app is closing you'd want to return false
+- `ignoreClassNames` (optional). A list of classNames that should be ignored
+- `getInitialProps` (optional). Function that returns a map of properties that should be added to each message
 
 Handles reconnections and buffers messages that might otherwise have been lost.
 

@@ -21,7 +21,7 @@ module.exports = class Client extends EventEmitter {
     return socket
   }
 
-  async start ({ createSocket, ignoreClassNames = [], getInitialProps = () => { } } = {}) {
+  async start ({ createSocket, canSocketReconnect = () => true, ignoreClassNames = [], getInitialProps = () => { } } = {}) {
     if (this._tracingStream) return console.warn('[keet-backend] Cannot start tracing, as tracing is already running')
     const buffer = []
 
@@ -93,6 +93,11 @@ module.exports = class Client extends EventEmitter {
     const onClose = async () => {
       this._connected = false
       this._tracingStream = null
+
+      if (!canSocketReconnect()) {
+        this.emit('close')
+        return
+      }
 
       this.emit('reconnect')
 
