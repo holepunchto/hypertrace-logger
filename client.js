@@ -22,7 +22,7 @@ module.exports = class Client extends EventEmitter {
   }
 
   async start ({ createSocket, canSocketReconnect = () => true, ignoreClassNames = [], getInitialProps = () => { } } = {}) {
-    if (this._tracingStream) return console.warn('[keet-backend] Cannot start tracing, as tracing is already running')
+    if (this._tracingStream) return console.warn('[hypertrace-logger] Cannot start tracing, as tracing is already running')
     const buffer = []
 
     // Note: Call setTraceFunction() as early as possible
@@ -57,7 +57,7 @@ module.exports = class Client extends EventEmitter {
       try {
         jsonString = JSON.stringify(res, jsonStringifyReplacer)
       } catch (err) {
-        console.warn('[keet-backend] Error in tracing (error has been suppresed)', err)
+        console.warn('[hypertrace-logger] Error in tracing (error has been suppresed)', err)
         return
       }
 
