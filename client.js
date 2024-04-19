@@ -54,7 +54,7 @@ module.exports = class Client extends EventEmitter {
     try {
       jsonString = JSON.stringify(res, jsonStringifyReplacer)
     } catch (err) {
-      console.warn('[hypertrace-logger] Error in tracing (error has been suppresed)', err)
+      console.error('[hypertrace-logger] Error in tracing (error has been suppresed)', err)
       return
     }
 
@@ -65,7 +65,7 @@ module.exports = class Client extends EventEmitter {
   }
 
   async start ({ createSocket, canSocketReconnect = () => true, ignoreClassNames = [], getInitialProps = () => { } } = {}) {
-    if (this._tracingStream) return console.warn('[hypertrace-logger] Cannot start tracing, as tracing is already running')
+    if (this._tracingStream) return console.error('[hypertrace-logger] Cannot start tracing, as tracing is already running')
     this._ignoreClassNames = ignoreClassNames
     this._buffer = []
 
