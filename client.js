@@ -25,7 +25,7 @@ module.exports = class Client extends EventEmitter {
 
   _ontrace (params) {
     const { id, object, parentObject, caller } = params
-    const shouldIgnore = this.ignoreClassNames.find(ignoreClassName => ignoreClassName === object?.className || ignoreClassName === parentObject?.className)
+    const shouldIgnore = this._ignoreClassNames.find(ignoreClassName => ignoreClassName === object?.className || ignoreClassName === parentObject?.className)
     if (shouldIgnore) return
 
     const traceNumber = this._traceMessagesCount
