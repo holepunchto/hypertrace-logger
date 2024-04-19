@@ -76,7 +76,7 @@ module.exports = class Client extends EventEmitter {
     this._buffer = []
 
     // Note: Call setTraceFunction() as early as possible
-    setTraceFunction(this._ontrace)
+    setTraceFunction(params => this._ontrace(params))
 
     const initialProps = await getInitialProps()
     if (initialProps) this.addProps(initialProps)
