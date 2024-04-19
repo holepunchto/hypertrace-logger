@@ -24,6 +24,8 @@ module.exports = class Client extends EventEmitter {
   }
 
   _ontrace (params) {
+    console.log(111)
+    console.log(this)
     if (!this._tracingStream) return
 
     const { id, object, parentObject, caller } = params
@@ -67,7 +69,9 @@ module.exports = class Client extends EventEmitter {
   }
 
   async start ({ createSocket, canSocketReconnect = () => true, ignoreClassNames = [], getInitialProps = () => { } } = {}) {
+    console.log(1)
     if (this._tracingStream) return console.warn('[hypertrace-logger] Cannot start tracing, as tracing is already running')
+    console.log(2)
     this._ignoreClassNames = ignoreClassNames
     this._buffer = []
 
