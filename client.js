@@ -24,6 +24,8 @@ module.exports = class Client extends EventEmitter {
   }
 
   _ontrace (params) {
+    if (!this._tracingStream) return
+
     const { id, object, parentObject, caller } = params
     const shouldIgnore = this._ignoreClassNames.find(ignoreClassName => ignoreClassName === object?.className || ignoreClassName === parentObject?.className)
     if (shouldIgnore) return
