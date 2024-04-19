@@ -64,6 +64,10 @@ Starts the tracing. First start `setTracerFunction` for `hypertrace` and then cr
 
 Handles reconnections and buffers messages that might otherwise have been lost.
 
+### .addTrace(params)
+
+After calling `.start`, tracing will start, so most times there is no need to call `.addTrace`. But if needed, then use this to add a trace message.
+
 ### Server
 
 #### Usage
