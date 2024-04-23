@@ -6,6 +6,8 @@ const { setTraceFunction, clearTraceFunction } = hypertrace
 module.exports = class Client extends EventEmitter {
   constructor () {
     super()
+    this._buffer = null
+    this._ignoreClassNames = []
     this._props = null
     this._tracingStream = null
     this._connected = false
@@ -22,50 +24,12 @@ module.exports = class Client extends EventEmitter {
   }
 
   async start ({ createSocket, canSocketReconnect = () => true, ignoreClassNames = [], getInitialProps = () => { } } = {}) {
-    if (this._tracingStream) return console.warn('[hypertrace-logger] Cannot start tracing, as tracing is already running')
-    const buffer = []
+    if (this._tracingStream) return console.error('[hypertrace-logger] Cannot start tracing, as tracing is already running')
+    this._ignoreClassNames = ignoreClassNames
+    this._buffer = []
 
     // Note: Call setTraceFunction() as early as possible
-    setTraceFunction(params => {
-      const { id, object, parentObject, caller } = params
-      const shouldIgnore = ignoreClassNames.find(ignoreClassName => ignoreClassName === object?.className || ignoreClassName === parentObject?.className)
-      if (shouldIgnore) return
-
-      const traceNumber = this._traceMessagesCount
-      this._traceMessagesCount += 1
-
-      const res = {
-        traceTimestamp: new Date().toISOString(),
-        traceSessionId: this._traceSessionId,
-        traceNumber,
-        id,
-        props: this._props,
-        object: {
-          id: object.id,
-          className: object.className,
-          props: object.props
-        },
-        caller: {
-          filename: caller.filename,
-          functionName: caller.functionName,
-          props: caller.props
-        }
-      }
-
-      let jsonString
-
-      try {
-        jsonString = JSON.stringify(res, jsonStringifyReplacer)
-      } catch (err) {
-        console.warn('[hypertrace-logger] Error in tracing (error has been suppresed)', err)
-        return
-      }
-
-      if (buffer.length > 2048) buffer.splice(0, 1024)
-      buffer.push({ traceNumber, jsonString })
-
-      this._tracingStream?.write(jsonString)
-    })
+    setTraceFunction(this.addTrace.bind(this))
 
     const initialProps = await getInitialProps()
     if (initialProps) this.addProps(initialProps)
@@ -83,7 +47,7 @@ module.exports = class Client extends EventEmitter {
         ? lastSeenTraceNumber + 1
         : 0
 
-      buffer.forEach(({ traceNumber, jsonString }) => {
+      this._buffer.forEach(({ traceNumber, jsonString }) => {
         if (traceNumber < serverMessagesSeen) return
         tracingStream.write(jsonString)
       })
@@ -119,6 +83,47 @@ module.exports = class Client extends EventEmitter {
     tracingStream.on('open', onOpen)
     tracingStream.on('error', onConnectionError)
     tracingStream.on('close', onClose)
+  }
+
+  addTrace (params) {
+    const { id, object, parentObject, caller } = params
+    const shouldIgnore = this._ignoreClassNames.find(ignoreClassName => ignoreClassName === object?.className || ignoreClassName === parentObject?.className)
+    if (shouldIgnore) return
+
+    const traceNumber = this._traceMessagesCount
+    this._traceMessagesCount += 1
+
+    const res = {
+      traceTimestamp: new Date().toISOString(),
+      traceSessionId: this._traceSessionId,
+      traceNumber,
+      id,
+      props: this._props,
+      object: {
+        id: object.id,
+        className: object.className,
+        props: object.props
+      },
+      caller: {
+        filename: caller.filename,
+        functionName: caller.functionName,
+        props: caller.props
+      }
+    }
+
+    let jsonString
+
+    try {
+      jsonString = JSON.stringify(res, jsonStringifyReplacer)
+    } catch (err) {
+      console.error('[hypertrace-logger] Error in tracing (error has been suppresed)', err)
+      return
+    }
+
+    if (this._buffer.length > 2048) this._buffer.splice(0, 1024)
+    this._buffer.push({ traceNumber, jsonString })
+
+    this._tracingStream?.write(jsonString)
   }
 
   stop () {
